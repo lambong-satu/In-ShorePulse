@@ -7,7 +7,6 @@ RUN npm install --omit=dev
 
 COPY flows.json /data/flows.json
 COPY settings.js /data/settings.js
-COPY public /data/public
 
 EXPOSE 1880
 
