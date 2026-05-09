@@ -10,7 +10,7 @@ module.exports = {
     type: "credentials",
     users: [{
       username: process.env.NODE_RED_USERNAME || "admin",
-      password: process.env.NODE_RED_PASSWORD_HASH || "$2b$08$8U0ZQ7V8wV1xQm2nM5QY8uR0D2wRk2Qm8v2Y5x6x7q8o9p0aBcDeF",
+      password: process.env.NODE_RED_PASSWORD_HASH || "admin123",
       permissions: "*"
     }]
   },
