@@ -6,15 +6,6 @@ module.exports = {
 
   credentialSecret: process.env.NODE_RED_CREDENTIAL_SECRET || "change-this-secret",
 
-  adminAuth: {
-    type: "credentials",
-    users: [{
-      username: process.env.NODE_RED_USERNAME || "admin",
-      password: process.env.NODE_RED_PASSWORD_HASH || "admin123",
-      permissions: "*"
-    }]
-  },
-
   httpNodeAuth: null,
   httpStaticAuth: null
 }
