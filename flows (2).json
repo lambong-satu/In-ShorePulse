@@ -1,0 +1,1016 @@
+[
+    {
+        "id": "marine_ts_live",
+        "type": "tab",
+        "label": "Marine Live Dashboard",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "poll_15s",
+        "type": "inject",
+        "z": "marine_ts_live",
+        "name": "Every 15s",
+        "props": [],
+        "repeat": "15",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "x": 130,
+        "y": 100,
+        "wires": [
+            [
+                "ts_pull"
+            ]
+        ]
+    },
+    {
+        "id": "hist_boot",
+        "type": "inject",
+        "z": "marine_ts_live",
+        "name": "Load Arrow History",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "x": 130,
+        "y": 160,
+        "wires": [
+            [
+                "ts_history_pull"
+            ]
+        ]
+    },
+    {
+        "id": "ts_pull",
+        "type": "http request",
+        "z": "marine_ts_live",
+        "name": "Get From ThingSpeak",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://api.thingspeak.com/channels/3358800/feeds/last.json?api_key=4WOZFG6B30EM5QGL",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "basic",
+        "senderr": false,
+        "headers": [],
+        "x": 180,
+        "y": 220,
+        "wires": [
+            [
+                "map_data_live",
+                "debug_raw"
+            ]
+        ]
+    },
+    {
+        "id": "ts_history_pull",
+        "type": "http request",
+        "z": "marine_ts_live",
+        "name": "Get ThingSpeak History",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://api.thingspeak.com/channels/3358800/feeds.json?api_key=4WOZFG6B30EM5QGL&results=80",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "basic",
+        "senderr": false,
+        "headers": [],
+        "x": 190,
+        "y": 280,
+        "wires": [
+            [
+                "map_history_for_svg",
+                "debug_hist_raw"
+            ]
+        ]
+    },
+    {
+        "id": "map_data_live",
+        "type": "function",
+        "z": "marine_ts_live",
+        "name": "Map Live Data",
+        "func": "const f = msg.payload || {};\nconst ts = f.created_at ? new Date(f.created_at).getTime() : Date.now();\n\nconst sensors = {\n  do: Number(parseFloat(f.field1) || 0),\n  ph: Number(parseFloat(f.field2) || 0),\n  salinity: Number(parseFloat(f.field3) || 0),\n  turbidity: Number(parseFloat(f.field4) || 0),\n  temp: Number(parseFloat(f.field5) || 0),\n  speed: Number(parseFloat(f.field6) || 0),\n  dir: Number(parseFloat(f.field7) || 0)\n};\n\nreturn [\n  { payload: sensors.do, topic: \"Dissolved Oxygen\", timestamp: ts },\n  { payload: sensors.ph, topic: \"pH\", timestamp: ts },\n  { payload: sensors.salinity, topic: \"Salinity\", timestamp: ts },\n  { payload: sensors.turbidity, topic: \"Turbidity\", timestamp: ts },\n  { payload: sensors.temp, topic: \"Water Temperature\", timestamp: ts },\n  { payload: sensors.speed, topic: \"Current Speed\", timestamp: ts },\n  { payload: sensors.dir, topic: \"Current Direction\", timestamp: ts },\n  {\n    payload: {\n      ts: ts,\n      speed: sensors.speed,\n      dir: sensors.dir\n    },\n    topic: \"Current Vector\",\n    timestamp: ts\n  }\n];",
+        "outputs": 8,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 220,
+        "wires": [
+            [
+                "c1",
+                "g1"
+            ],
+            [
+                "c2",
+                "g2"
+            ],
+            [
+                "c3",
+                "g3"
+            ],
+            [
+                "c4",
+                "g4"
+            ],
+            [
+                "c5",
+                "g5"
+            ],
+            [
+                "c6",
+                "g6"
+            ],
+            [
+                "compass_dir"
+            ],
+            [
+                "dir_plot_time_svg",
+                "debug_vector"
+            ]
+        ]
+    },
+    {
+        "id": "map_history_for_svg",
+        "type": "function",
+        "z": "marine_ts_live",
+        "name": "Map History For SVG",
+        "func": "const feeds = msg.payload && msg.payload.feeds ? msg.payload.feeds : [];\n\nmsg.payload = {\n  mode: \"history\",\n  points: feeds\n    .filter(f => f.field6 !== null && f.field7 !== null)\n    .map(f => ({\n      ts: new Date(f.created_at).getTime(),\n      speed: Number(parseFloat(f.field6) || 0),\n      dir: Number(parseFloat(f.field7) || 0)\n    }))\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 280,
+        "wires": [
+            [
+                "debug_hist_mapped",
+                "92ddc1294fe57c9e"
+            ]
+        ]
+    },
+    {
+        "id": "c1",
+        "type": "ui-chart",
+        "z": "marine_ts_live",
+        "group": "grp1",
+        "name": "",
+        "label": "DO History",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Time",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "DO (mg/L)",
+        "yAxisProperty": "",
+        "yAxisPropertyType": "property",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": "3",
+        "showLegend": false,
+        "removeOlder": "2",
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "1000",
+        "colors": [
+            "#06b6d4"
+        ],
+        "textColor": [
+            "#d1d5db"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "rgba(148,163,184,0.20)"
+        ],
+        "gridColorDefault": false,
+        "width": 8,
+        "height": 4,
+        "className": "",
+        "interpolation": "linear",
+        "x": 760,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "g1",
+        "type": "ui-gauge",
+        "z": "marine_ts_live",
+        "name": "",
+        "group": "grp1",
+        "order": 2,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 4,
+        "height": 4,
+        "title": "DO",
+        "alwaysShowTitle": true,
+        "units": "mg/L",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#06b6d4"
+            },
+            {
+                "from": "12",
+                "color": "#06b6d4"
+            }
+        ],
+        "min": 0,
+        "max": 12,
+        "sizeThickness": "18",
+        "sizeGap": "8",
+        "sizeKeyThickness": "8",
+        "className": "",
+        "x": 760,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c2",
+        "type": "ui-chart",
+        "z": "marine_ts_live",
+        "group": "grp2",
+        "name": "",
+        "label": "pH History",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Time",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "pH",
+        "yAxisProperty": "",
+        "yAxisPropertyType": "property",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": "3",
+        "showLegend": false,
+        "removeOlder": "2",
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "1000",
+        "colors": [
+            "#8b5cf6"
+        ],
+        "textColor": [
+            "#d1d5db"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "rgba(148,163,184,0.20)"
+        ],
+        "gridColorDefault": false,
+        "width": 8,
+        "height": 4,
+        "className": "",
+        "interpolation": "linear",
+        "x": 760,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "g2",
+        "type": "ui-gauge",
+        "z": "marine_ts_live",
+        "name": "",
+        "group": "grp2",
+        "order": 2,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 4,
+        "height": 4,
+        "title": "pH",
+        "alwaysShowTitle": true,
+        "units": "",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#8b5cf6"
+            },
+            {
+                "from": "14",
+                "color": "#8b5cf6"
+            }
+        ],
+        "min": 0,
+        "max": 14,
+        "sizeThickness": "18",
+        "sizeGap": "8",
+        "sizeKeyThickness": "8",
+        "className": "",
+        "x": 760,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c3",
+        "type": "ui-chart",
+        "z": "marine_ts_live",
+        "group": "grp3",
+        "name": "",
+        "label": "Salinity History",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Time",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "Salinity (ppt)",
+        "yAxisProperty": "",
+        "yAxisPropertyType": "property",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": "3",
+        "showLegend": false,
+        "removeOlder": "2",
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "1000",
+        "colors": [
+            "#10b981"
+        ],
+        "textColor": [
+            "#d1d5db"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "rgba(148,163,184,0.20)"
+        ],
+        "gridColorDefault": false,
+        "width": 8,
+        "height": 4,
+        "className": "",
+        "interpolation": "linear",
+        "x": 760,
+        "y": 200,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "g3",
+        "type": "ui-gauge",
+        "z": "marine_ts_live",
+        "name": "",
+        "group": "grp3",
+        "order": 2,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 4,
+        "height": 4,
+        "title": "Salinity",
+        "alwaysShowTitle": true,
+        "units": "ppt",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "30",
+                "color": "#10b981"
+            },
+            {
+                "from": "40",
+                "color": "#10b981"
+            }
+        ],
+        "min": 30,
+        "max": 40,
+        "sizeThickness": "18",
+        "sizeGap": "8",
+        "sizeKeyThickness": "8",
+        "className": "",
+        "x": 760,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c4",
+        "type": "ui-chart",
+        "z": "marine_ts_live",
+        "group": "grp4",
+        "name": "",
+        "label": "Turbidity History",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Time",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "Turbidity (NTU)",
+        "yAxisProperty": "",
+        "yAxisPropertyType": "property",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": "3",
+        "showLegend": false,
+        "removeOlder": "2",
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "1000",
+        "colors": [
+            "#f59e0b"
+        ],
+        "textColor": [
+            "#d1d5db"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "rgba(148,163,184,0.20)"
+        ],
+        "gridColorDefault": false,
+        "width": 8,
+        "height": 4,
+        "className": "",
+        "interpolation": "linear",
+        "x": 760,
+        "y": 280,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "g4",
+        "type": "ui-gauge",
+        "z": "marine_ts_live",
+        "name": "",
+        "group": "grp4",
+        "order": 2,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 4,
+        "height": 4,
+        "title": "Turbidity",
+        "alwaysShowTitle": true,
+        "units": "NTU",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#f59e0b"
+            },
+            {
+                "from": "10",
+                "color": "#f59e0b"
+            }
+        ],
+        "min": 0,
+        "max": 10,
+        "sizeThickness": "18",
+        "sizeGap": "8",
+        "sizeKeyThickness": "8",
+        "className": "",
+        "x": 760,
+        "y": 320,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c5",
+        "type": "ui-chart",
+        "z": "marine_ts_live",
+        "group": "grp5",
+        "name": "",
+        "label": "Water Temp History",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Time",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "Water Temp (°C)",
+        "yAxisProperty": "",
+        "yAxisPropertyType": "property",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": "3",
+        "showLegend": false,
+        "removeOlder": "2",
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "1000",
+        "colors": [
+            "#ef4444"
+        ],
+        "textColor": [
+            "#d1d5db"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "rgba(148,163,184,0.20)"
+        ],
+        "gridColorDefault": false,
+        "width": 8,
+        "height": 4,
+        "className": "",
+        "interpolation": "linear",
+        "x": 760,
+        "y": 360,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "g5",
+        "type": "ui-gauge",
+        "z": "marine_ts_live",
+        "name": "",
+        "group": "grp5",
+        "order": 2,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 4,
+        "height": 4,
+        "title": "Water Temp",
+        "alwaysShowTitle": true,
+        "units": "°C",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "10",
+                "color": "#ef4444"
+            },
+            {
+                "from": "40",
+                "color": "#ef4444"
+            }
+        ],
+        "min": 10,
+        "max": 40,
+        "sizeThickness": "18",
+        "sizeGap": "8",
+        "sizeKeyThickness": "8",
+        "className": "",
+        "x": 760,
+        "y": 400,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c6",
+        "type": "ui-chart",
+        "z": "marine_ts_live",
+        "group": "grp6",
+        "name": "",
+        "label": "Current Speed History",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Time",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "Current Speed (m/s)",
+        "yAxisProperty": "",
+        "yAxisPropertyType": "property",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": "3",
+        "showLegend": false,
+        "removeOlder": "2",
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "1000",
+        "colors": [
+            "#38bdf8"
+        ],
+        "textColor": [
+            "#d1d5db"
+        ],
+        "textColorDefault": false,
+        "gridColor": [
+            "rgba(148,163,184,0.20)"
+        ],
+        "gridColorDefault": false,
+        "width": 8,
+        "height": 4,
+        "className": "",
+        "interpolation": "linear",
+        "x": 760,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "g6",
+        "type": "ui-gauge",
+        "z": "marine_ts_live",
+        "name": "",
+        "group": "grp6",
+        "order": 2,
+        "value": "payload",
+        "valueType": "msg",
+        "width": 4,
+        "height": 4,
+        "title": "Current Speed",
+        "alwaysShowTitle": true,
+        "units": "m/s",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#38bdf8"
+            },
+            {
+                "from": "5",
+                "color": "#38bdf8"
+            }
+        ],
+        "min": 0,
+        "max": 5,
+        "sizeThickness": "18",
+        "sizeGap": "8",
+        "sizeKeyThickness": "8",
+        "className": "",
+        "x": 760,
+        "y": 480,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "compass_dir",
+        "type": "ui-compass",
+        "z": "marine_ts_live",
+        "group": "grp7",
+        "name": "",
+        "label": "Current Direction",
+        "order": 1,
+        "width": 4,
+        "height": 6,
+        "x": 770,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "dir_plot_time_svg",
+        "type": "ui-template",
+        "z": "marine_ts_live",
+        "group": "grp7",
+        "page": "",
+        "ui": "",
+        "name": "Direction Time-Speed SVG Plot",
+        "order": 2,
+        "width": 8,
+        "height": 6,
+        "format": "<template>\n  <div class=\"dir-wrap\">\n    <div class=\"dir-head\">\n      <div class=\"dir-title\">Current Speed vs Time</div>\n      <div class=\"dir-sub\">Arrow angle = current direction, visible window = last 2 hours / 1000 points</div>\n    </div>\n\n    <div class=\"dir-svg-wrap\">\n      <svg viewBox=\"0 0 1000 320\" preserveAspectRatio=\"none\" class=\"dir-svg\">\n        <line :x1=\"xMin\" :y1=\"yMax\" :x2=\"xMax\" :y2=\"yMax\" class=\"axis-line\" />\n        <line :x1=\"xMin\" :y1=\"yMin\" :x2=\"xMin\" :y2=\"yMax\" class=\"axis-line\" />\n\n        <g v-for=\"tick in yTicks\" :key=\"'y' + tick.value\">\n          <line :x1=\"xMin - 6\" :y1=\"tick.y\" :x2=\"xMin\" :y2=\"tick.y\" class=\"tick-line\" />\n          <text :x=\"xMin - 10\" :y=\"tick.y + 4\" class=\"axis-text tick-label\" text-anchor=\"end\">{{ tick.label }}</text>\n          <line :x1=\"xMin\" :y1=\"tick.y\" :x2=\"xMax\" :y2=\"tick.y\" class=\"grid-line\" />\n        </g>\n\n        <g v-for=\"tick in xTicks\" :key=\"'x' + tick.value\">\n          <line :x1=\"tick.x\" :y1=\"yMax\" :x2=\"tick.x\" :y2=\"yMax + 6\" class=\"tick-line\" />\n          <text :x=\"tick.x\" :y=\"yMax + 20\" class=\"axis-text tick-label\" text-anchor=\"middle\">{{ tick.label }}</text>\n          <line :x1=\"tick.x\" :y1=\"yMin\" :x2=\"tick.x\" :y2=\"yMax\" class=\"grid-line vertical-grid\" />\n        </g>\n\n        <text :x=\"xMax - 5\" :y=\"yMax + 38\" class=\"axis-text axis-title\" text-anchor=\"end\">Time</text>\n        <text :x=\"xMin - 38\" :y=\"yMin + 8\" class=\"axis-text axis-title\">Speed</text>\n\n        <polyline v-if=\"points.length > 1\" :points=\"linePoints\" class=\"track-line\" />\n\n        <g v-for=\"(p, i) in points\" :key=\"p.ts + '_' + i\">\n          <g :transform=\"arrowTransform(p)\">\n            <polygon :points=\"arrowPoints(i)\" :fill=\"speedColor(p.speed)\" :stroke=\"speedColor(p.speed)\"\n              :stroke-width=\"arrowStroke(i)\" />\n          </g>\n        </g>\n      </svg>\n    </div>\n  </div>\n</template>\n\n<script>\n  export default {\n  data() {\n    return {\n      points: [],\n      maxPoints: 1000,\n      maxAgeMs: 2 * 60 * 60 * 1000,\n      maxSpeed: 5,\n      xMin: 70,\n      xMax: 980,\n      yMin: 20,\n      yMax: 270\n    }\n  },\n\n  mounted() {\n    this.$socket.on('msg-input:' + this.id, this.onInput)\n\n    this.$nextTick(() => {\n      this.$socket.send({\n        topic: 'load-results',\n        payload: { request: 'history' }\n      })\n    })\n  },\n\n  unmounted() {\n    this.$socket.off('msg-input:' + this.id, this.onInput)\n  },\n\n  watch: {\n    msg: {\n      deep: true,\n      immediate: false,\n      handler() {\n        this.onInput(this.msg)\n      }\n    }\n  },\n\n  methods: {\n    onInput(msg) {\n      if (!msg || !msg.payload) return\n\n      // If server is sending history\n      if (msg.topic === 'load-results' && Array.isArray(msg.payload.points)) {\n        this.points = msg.payload.points.map(v => ({\n          ts: Number(v.ts ?? Date.now()),\n          speed: Number(v.speed ?? 0),\n          dir: Number(v.dir ?? 0)\n        }))\n        this.trimPoints()\n        return\n      }\n\n      // Normal history/appends\n      if (msg.payload.mode === 'history' && Array.isArray(msg.payload.points)) {\n        this.points = msg.payload.points.map(v => ({\n          ts: Number(v.ts ?? Date.now()),\n          speed: Number(v.speed ?? 0),\n          dir: Number(v.dir ?? 0)\n        }))\n        this.trimPoints()\n        return\n      }\n\n      if (msg.payload.mode === 'append' && msg.payload.point) {\n        this.points.push({\n          ts: Number(msg.payload.point.ts ?? Date.now()),\n          speed: Number(msg.payload.point.speed ?? 0),\n          dir: Number(msg.payload.point.dir ?? 0)\n        })\n        this.trimPoints()\n        return\n      }\n\n      if (msg.payload.ts !== undefined && msg.payload.speed !== undefined && msg.payload.dir !== undefined) {\n        this.points.push({\n          ts: Number(msg.payload.ts ?? Date.now()),\n          speed: Number(msg.payload.speed ?? 0),\n          dir: Number(msg.payload.dir ?? 0)\n        })\n        this.trimPoints()\n      }\n    },\n\n    trimPoints() {\n      const cutoff = Date.now() - this.maxAgeMs\n      this.points = this.points\n        .filter(p => Number(p.ts) >= cutoff)\n        .sort((a, b) => a.ts - b.ts)\n\n      if (this.points.length > this.maxPoints) {\n        this.points = this.points.slice(-this.maxPoints)\n      }\n    },\n\n    speedColor(speed) {\n      if (speed < 0.5) return '#22c55e'\n      if (speed < 1.5) return '#84cc16'\n      if (speed < 2.5) return '#eab308'\n      if (speed < 3.5) return '#f97316'\n      return '#ef4444'\n    },\n\n    minTs() {\n      return Date.now() - this.maxAgeMs\n    },\n\n    maxTs() {\n      return Date.now()\n    },\n\n    toSvgX(ts) {\n      const min = this.minTs()\n      const max = this.maxTs()\n      return this.xMin + ((ts - min) / (max - min)) * (this.xMax - this.xMin)\n    },\n\n    toSvgY(speed) {\n      const min = 0\n      const max = this.maxSpeed\n      return this.yMax - ((speed - min) / (max - min)) * (this.yMax - this.yMin)\n    },\n\n    arrowTransform(p) {\n      return `translate(${this.toSvgX(p.ts)}, ${this.toSvgY(p.speed)}) rotate(${p.dir})`\n    },\n\n    arrowPoints(i) {\n      const isLatest = i === this.points.length - 1\n      return isLatest ? '0,-18 12,12 0,6 -12,12' : '0,-12 8,8 0,4 -8,8'\n    },\n\n    arrowStroke(i) {\n      return i === this.points.length - 1 ? 2.5 : 1.5\n    },\n\n    formatTime(ts) {\n      const d = new Date(ts)\n      const hh = String(d.getHours()).padStart(2, '0')\n      const mm = String(d.getMinutes()).padStart(2, '0')\n      return `${hh}:${mm}`\n    }\n  },\n\n  computed: {\n    linePoints() {\n      return this.points\n        .map(p => `${this.toSvgX(p.ts)},${this.toSvgY(p.speed)}`)\n        .join(' ')\n    },\n\n    yTicks() {\n      const steps = 5\n      const arr = []\n      for (let i = 0; i <= steps; i++) {\n        const value = (this.maxSpeed / steps) * i\n        arr.push({\n          value,\n          label: value.toFixed(1),\n          y: this.toSvgY(value)\n        })\n      }\n      return arr\n    },\n\n    xTicks() {\n      const min = this.minTs()\n      const max = this.maxTs()\n      const steps = 4\n      const arr = []\n\n      for (let i = 0; i <= steps; i++) {\n        const value = min + ((max - min) / steps) * i\n        arr.push({\n          value,\n          label: this.formatTime(value),\n          x: this.toSvgX(value)\n        })\n      }\n      return arr\n    }\n  }\n}\n</script>\n\n<style>\n  .dir-wrap {\n    height: 100%;\n    min-height: 330px;\n    background: linear-gradient(180deg, #0f172a 0%, #111827 100%);\n    border: 1px solid #334155;\n    border-radius: 14px;\n    padding: 10px 12px 12px 12px;\n    box-sizing: border-box;\n  }\n\n  .dir-head {\n    margin-bottom: 8px;\n  }\n\n  .dir-title {\n    color: #e5e7eb;\n    font-size: 16px;\n    font-weight: 700;\n  }\n\n  .dir-sub {\n    color: #94a3b8;\n    font-size: 12px;\n    margin-top: 2px;\n  }\n\n  .dir-svg-wrap {\n    width: 100%;\n    height: 285px;\n  }\n\n  .dir-svg {\n    width: 100%;\n    height: 100%;\n    display: block;\n  }\n\n  .axis-line {\n    stroke: rgba(148, 163, 184, 0.55);\n    stroke-width: 1.5;\n  }\n\n  .tick-line {\n    stroke: rgba(148, 163, 184, 0.55);\n    stroke-width: 1.2;\n  }\n\n  .grid-line {\n    stroke: rgba(148, 163, 184, 0.12);\n    stroke-width: 1;\n  }\n\n  .vertical-grid {\n    stroke: rgba(148, 163, 184, 0.10);\n  }\n\n  .axis-text {\n    fill: #cbd5e1;\n    font-size: 12px;\n  }\n\n  .tick-label {\n    fill: #94a3b8;\n  }\n\n  .axis-title {\n    fill: #e5e7eb;\n    font-size: 13px;\n    font-weight: 600;\n  }\n\n  .track-line {\n    fill: none;\n    stroke: rgba(56, 189, 248, 0.35);\n    stroke-width: 2;\n  }\n</style>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 820,
+        "y": 600,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "debug_raw",
+        "type": "debug",
+        "z": "marine_ts_live",
+        "name": "ThingSpeak Raw",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 390,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "debug_hist_raw",
+        "type": "debug",
+        "z": "marine_ts_live",
+        "name": "History Raw",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 400,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "debug_hist_mapped",
+        "type": "debug",
+        "z": "marine_ts_live",
+        "name": "History Mapped",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 650,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "debug_vector",
+        "type": "debug",
+        "z": "marine_ts_live",
+        "name": "Live Vector Append",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 650,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "92ddc1294fe57c9e",
+        "type": "function",
+        "z": "marine_ts_live",
+        "name": "RestoreHistory on load",
+        "func": "const p = msg.payload || {};\n\n// If client requests history on load\nif (msg.topic === 'load-results') {\n    const history = flow.get(\"dirHistory\") || [];\n    msg.payload = {\n        points: history\n    };\n    return msg;\n}\n\n// Otherwise pass through history/appends unchanged\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 560,
+        "wires": [
+            [
+                "dir_plot_time_svg"
+            ]
+        ]
+    },
+    {
+        "id": "grp1",
+        "type": "ui-group",
+        "name": "DO Group",
+        "page": "ui_p1",
+        "width": "12",
+        "height": "",
+        "order": 7,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp2",
+        "type": "ui-group",
+        "name": "pH Group",
+        "page": "ui_p1",
+        "width": "12",
+        "height": "",
+        "order": 6,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp3",
+        "type": "ui-group",
+        "name": "Salinity Group",
+        "page": "ui_p1",
+        "width": "12",
+        "height": "",
+        "order": 5,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp4",
+        "type": "ui-group",
+        "name": "Turbidity Group",
+        "page": "ui_p1",
+        "width": "12",
+        "height": "",
+        "order": 4,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp5",
+        "type": "ui-group",
+        "name": "Water Temp Group",
+        "page": "ui_p1",
+        "width": "12",
+        "height": "",
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp6",
+        "type": "ui-group",
+        "name": "Current Speed Group",
+        "page": "ui_p1",
+        "width": "12",
+        "height": "",
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "grp7",
+        "type": "ui-group",
+        "name": "Direction Group",
+        "page": "ui_p1",
+        "width": "12",
+        "height": "",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "ui_p1",
+        "type": "ui-page",
+        "name": "Live Sensors",
+        "ui": "ui_base",
+        "path": "/live-sensors",
+        "icon": "mdi-waveform",
+        "layout": "grid",
+        "theme": "theme_marine",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 1,
+        "className": "",
+        "visible": true,
+        "disabled": false
+    },
+    {
+        "id": "ui_base",
+        "type": "ui-base",
+        "name": "Marine UI",
+        "path": "/dashboard",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-control",
+            "ui-notification"
+        ],
+        "headerContent": "page",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 5,
+        "showDisconnectNotification": true,
+        "allowInstall": true
+    },
+    {
+        "id": "theme_marine",
+        "type": "ui-theme",
+        "name": "Marine Theme",
+        "colors": {
+            "surface": "#111827",
+            "primary": "#06b6d4",
+            "bgPage": "#0b1220",
+            "groupBg": "#1f2937",
+            "groupOutline": "#334155"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "8px",
+            "widgetGap": "12px"
+        }
+    }
+]
